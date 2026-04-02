@@ -8,12 +8,11 @@ API_URL = "https://api.ohmynana.net"
 
 
 class BustedSolver:
-    def __init__(self, api_key, proxy=None):
+    def __init__(self, api_key):
         self.api_key = api_key
         self.api_url = API_URL
-        self.proxy = proxy
 
-    def solve(self, site_key, page_url, action="submit", timeout=60):
+    def solve(self, site_key, page_url, action="submit", proxy=None, proxy_type="HTTP", timeout=60):
         """
         Solve reCAPTCHA v3 and return the token string (sync).
 
@@ -21,6 +20,8 @@ class BustedSolver:
             site_key: reCAPTCHA site key (starts with 6L...)
             page_url: Full URL of the page with reCAPTCHA
             action: reCAPTCHA action string (default: "submit")
+            proxy: Optional proxy (e.g. "user:pass@host:port")
+            proxy_type: Proxy protocol -- "HTTP" or "SOCKS5" (default: "HTTP")
             timeout: Request timeout in seconds (default: 60)
 
         Returns:
@@ -29,17 +30,17 @@ class BustedSolver:
         Raises:
             BustedError: If solve fails or API returns error
         """
+        payload = {"site_key": site_key, "page_url": page_url, "action": action}
+        if proxy:
+            payload["proxy"] = proxy
+            payload["proxy_type"] = proxy_type
+
         try:
             r = httpx.post(
                 f"{self.api_url}/api/solve",
-                json={
-                    "site_key": site_key,
-                    "page_url": page_url,
-                    "action": action,
-                },
+                json=payload,
                 headers={"X-API-Key": self.api_key},
                 timeout=timeout,
-                proxy=self.proxy,
             )
         except httpx.TimeoutException:
             raise BustedError("Request timed out")
@@ -48,7 +49,7 @@ class BustedSolver:
 
         return self._parse_solve(r)
 
-    async def solve_async(self, site_key, page_url, action="submit", timeout=60):
+    async def solve_async(self, site_key, page_url, action="submit", proxy=None, proxy_type="HTTP", timeout=60):
         """
         Solve reCAPTCHA v3 and return the token string (async).
 
@@ -56,6 +57,8 @@ class BustedSolver:
             site_key: reCAPTCHA site key (starts with 6L...)
             page_url: Full URL of the page with reCAPTCHA
             action: reCAPTCHA action string (default: "submit")
+            proxy: Optional proxy (e.g. "user:pass@host:port")
+            proxy_type: Proxy protocol -- "HTTP" or "SOCKS5" (default: "HTTP")
             timeout: Request timeout in seconds (default: 60)
 
         Returns:
@@ -64,15 +67,16 @@ class BustedSolver:
         Raises:
             BustedError: If solve fails or API returns error
         """
+        payload = {"site_key": site_key, "page_url": page_url, "action": action}
+        if proxy:
+            payload["proxy"] = proxy
+            payload["proxy_type"] = proxy_type
+
         try:
-            async with httpx.AsyncClient(timeout=timeout, proxy=self.proxy) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 r = await client.post(
                     f"{self.api_url}/api/solve",
-                    json={
-                        "site_key": site_key,
-                        "page_url": page_url,
-                        "action": action,
-                    },
+                    json=payload,
                     headers={"X-API-Key": self.api_key},
                 )
         except httpx.TimeoutException:
@@ -107,7 +111,6 @@ class BustedSolver:
                 f"{self.api_url}/api/usage",
                 headers={"X-API-Key": self.api_key},
                 timeout=10,
-                proxy=self.proxy,
             )
             return r.json()
         except Exception as e:
@@ -121,7 +124,7 @@ class BustedSolver:
             dict with requests_used, requests_limit, rate_per_minute, expires_at
         """
         try:
-            async with httpx.AsyncClient(timeout=10, proxy=self.proxy) as client:
+            async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(
                     f"{self.api_url}/api/usage",
                     headers={"X-API-Key": self.api_key},

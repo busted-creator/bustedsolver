@@ -52,6 +52,30 @@ async def main():
 asyncio.run(main())
 ```
 
+## Proxy Support
+
+You can optionally pass a proxy for the solver to use:
+
+```python
+token = solver.solve(
+    site_key="6Le...",
+    page_url="https://target.com",
+    action="submit",
+    proxy="user:pass@host:port",
+    proxy_type="HTTP",            # "HTTP" (default) or "SOCKS5"
+)
+
+# async version
+token = await solver.solve_async(
+    site_key="6Le...",
+    page_url="https://target.com",
+    action="submit",
+    proxy="user:pass@host:port",
+)
+```
+
+If no proxy is provided, the solver uses its own infrastructure.
+
 ## Find reCAPTCHA Info
 
 Open target page source and search for:
@@ -88,20 +112,6 @@ try:
 except BustedError as e:
     print(f"Failed: {e}")
 ```
-
-## Proxy Support
-
-BustedSolver connects directly to our API by default. If you need to route API calls through a proxy:
-
-```python
-solver = BustedSolver("sk_live_your_key", proxy="http://user:pass@host:port")
-
-# works with both sync and async
-token = solver.solve("6Le...", "https://target.com", action="submit")
-token = await solver.solve_async("6Le...", "https://target.com", action="submit")
-```
-
-If no proxy is set, requests go direct. Do not set HTTP_PROXY/HTTPS_PROXY environment variables -- use the `proxy` parameter instead.
 
 ## Get API Key
 
