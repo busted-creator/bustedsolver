@@ -8,13 +8,14 @@ API_URL = "https://api.ohmynana.net"
 
 
 class BustedSolver:
-    def __init__(self, api_key):
+    def __init__(self, api_key, proxy=None):
         self.api_key = api_key
         self.api_url = API_URL
+        self.proxy = proxy
 
     def solve(self, site_key, page_url, action="submit", timeout=60):
         """
-        Solve reCAPTCHA v3 and return the token string.
+        Solve reCAPTCHA v3 and return the token string (sync).
 
         Args:
             site_key: reCAPTCHA site key (starts with 6L...)
@@ -38,15 +39,51 @@ class BustedSolver:
                 },
                 headers={"X-API-Key": self.api_key},
                 timeout=timeout,
-                proxy=None,
+                proxy=self.proxy,
             )
         except httpx.TimeoutException:
             raise BustedError("Request timed out")
         except Exception as e:
             raise BustedError(f"Connection error: {e}")
 
-        data = r.json()
+        return self._parse_solve(r)
 
+    async def solve_async(self, site_key, page_url, action="submit", timeout=60):
+        """
+        Solve reCAPTCHA v3 and return the token string (async).
+
+        Args:
+            site_key: reCAPTCHA site key (starts with 6L...)
+            page_url: Full URL of the page with reCAPTCHA
+            action: reCAPTCHA action string (default: "submit")
+            timeout: Request timeout in seconds (default: 60)
+
+        Returns:
+            str: reCAPTCHA token
+
+        Raises:
+            BustedError: If solve fails or API returns error
+        """
+        try:
+            async with httpx.AsyncClient(timeout=timeout, proxy=self.proxy) as client:
+                r = await client.post(
+                    f"{self.api_url}/api/solve",
+                    json={
+                        "site_key": site_key,
+                        "page_url": page_url,
+                        "action": action,
+                    },
+                    headers={"X-API-Key": self.api_key},
+                )
+        except httpx.TimeoutException:
+            raise BustedError("Request timed out")
+        except Exception as e:
+            raise BustedError(f"Connection error: {e}")
+
+        return self._parse_solve(r)
+
+    def _parse_solve(self, r):
+        data = r.json()
         if r.status_code == 200 and data.get("status") == "success":
             return data["token"]
 
@@ -60,7 +97,7 @@ class BustedSolver:
 
     def usage(self):
         """
-        Check API key usage and remaining requests.
+        Check API key usage and remaining requests (sync).
 
         Returns:
             dict with requests_used, requests_limit, rate_per_minute, expires_at
@@ -70,9 +107,26 @@ class BustedSolver:
                 f"{self.api_url}/api/usage",
                 headers={"X-API-Key": self.api_key},
                 timeout=10,
-                proxy=None,
+                proxy=self.proxy,
             )
             return r.json()
+        except Exception as e:
+            raise BustedError(f"Usage check failed: {e}")
+
+    async def usage_async(self):
+        """
+        Check API key usage and remaining requests (async).
+
+        Returns:
+            dict with requests_used, requests_limit, rate_per_minute, expires_at
+        """
+        try:
+            async with httpx.AsyncClient(timeout=10, proxy=self.proxy) as client:
+                r = await client.get(
+                    f"{self.api_url}/api/usage",
+                    headers={"X-API-Key": self.api_key},
+                )
+                return r.json()
         except Exception as e:
             raise BustedError(f"Usage check failed: {e}")
 
