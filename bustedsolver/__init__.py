@@ -4,7 +4,7 @@ BustedSolver -- reCAPTCHA v3 Solver SDK
 
 import httpx
 
-API_URL = "https://api.ohmynana.net"
+API_URL = "https://api.bustedcap.com"
 
 
 class BustedSolver:
