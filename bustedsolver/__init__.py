@@ -1,5 +1,5 @@
 """
-BustedSolver -- reCAPTCHA v3 Solver SDK
+BustedSolver -- reCAPTCHA v3 Solver + Square PCI Tokenizer SDK
 """
 
 import httpx
@@ -85,6 +85,81 @@ class BustedSolver:
             raise BustedError(f"Connection error: {e}")
 
         return self._parse_solve(r)
+
+    def tokenize(self, cc, mm, yyyy, cvv, app_id, loc_id, base_url,
+                 sq_version="1.83.1", email="", billing=None, intent="CHARGE",
+                 timeout=60):
+        """
+        Tokenize a card via Square PCI connect (sync).
+
+        Returns:
+            tuple: (card_nonce, card_info, verification_token)
+        """
+        payload = {
+            "cc": cc, "mm": mm, "yyyy": yyyy, "cvv": cvv,
+            "app_id": app_id, "loc_id": loc_id, "base_url": base_url,
+            "sq_version": sq_version, "email": email, "intent": intent,
+        }
+        if billing:
+            payload["billing"] = billing
+
+        try:
+            r = httpx.post(
+                f"{self.api_url}/api/tokenize",
+                json=payload,
+                headers={"X-API-Key": self.api_key},
+                timeout=timeout,
+            )
+        except httpx.TimeoutException:
+            raise BustedError("Request timed out")
+        except Exception as e:
+            raise BustedError(f"Connection error: {e}")
+
+        return self._parse_tokenize(r)
+
+    async def tokenize_async(self, cc, mm, yyyy, cvv, app_id, loc_id, base_url,
+                             sq_version="1.83.1", email="", billing=None,
+                             intent="CHARGE", timeout=60):
+        """
+        Tokenize a card via Square PCI connect (async).
+
+        Returns:
+            tuple: (card_nonce, card_info, verification_token)
+        """
+        payload = {
+            "cc": cc, "mm": mm, "yyyy": yyyy, "cvv": cvv,
+            "app_id": app_id, "loc_id": loc_id, "base_url": base_url,
+            "sq_version": sq_version, "email": email, "intent": intent,
+        }
+        if billing:
+            payload["billing"] = billing
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                r = await client.post(
+                    f"{self.api_url}/api/tokenize",
+                    json=payload,
+                    headers={"X-API-Key": self.api_key},
+                )
+        except httpx.TimeoutException:
+            raise BustedError("Request timed out")
+        except Exception as e:
+            raise BustedError(f"Connection error: {e}")
+
+        return self._parse_tokenize(r)
+
+    def _parse_tokenize(self, r):
+        data = r.json()
+        if r.status_code == 200 and data.get("status") == "success":
+            return data["card_nonce"], data["card_info"], data["verification_token"]
+
+        detail = data.get("detail") or data.get("message") or str(data)
+        if r.status_code == 401:
+            raise BustedError(f"Auth failed: {detail}")
+        elif r.status_code == 429:
+            raise BustedError(f"Rate limited: {detail}")
+        else:
+            raise BustedError(f"Tokenize failed: {detail}")
 
     def _parse_solve(self, r):
         data = r.json()
